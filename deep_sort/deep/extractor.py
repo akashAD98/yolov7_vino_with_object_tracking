@@ -166,9 +166,9 @@ class ModelExtractor(object):
         self.height = self.input_shape[2]
         self.width = self.input_shape[3]
         print("Orignal_model_shape",self.input_layer.shape)
+        # orignal size of model is --> [1, 3, 256, 128
 
-
-        new_shape = PartialShape([1, 3, 256, 128])
+        new_shape = PartialShape([1, 3, 256, 256])
         self.model.reshape({self.input_layer.any_name: new_shape})
         #self.height = self.input_shape[2]
         #self.width = self.input_shape[3]
@@ -276,7 +276,7 @@ class ModelExtractor(object):
     def get_features_single(self, face):
         faces_im = []
         for f in face:
-            f = cv2.resize(f, (256, 128), interpolation=cv2.INTER_AREA)  # (h, w, 3)
+            f = cv2.resize(f, (self.width, self.height), interpolation=cv2.INTER_AREA)  # (h, w, 3)
             #assert f.shape == (self.height, self.width, 3), f"Input image shape {f.shape} does not match expected shape {(self.height, self.width, 3)}"
             f = f.transpose(2, 0, 1)                  # (3, H, W)
             f = np.float32(f) / 255                   # convert to float and scale to [0, 1]
