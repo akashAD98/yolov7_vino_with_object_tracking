@@ -5,6 +5,10 @@ installation steps
 
 first install
 1.install openvino
+follow this steps to install openvino on windows
+
+https://github.com/openvinotoolkit/openvino_notebooks/wiki/Windows`
+
 2.install deepsort dependenices
 ```
 pip install -r requirements.txt
