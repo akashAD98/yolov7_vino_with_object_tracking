@@ -92,6 +92,80 @@ class DeepSortFace(object):
     Thanks JieChen91@github.com for reporting this bug!
     """
 
+    
+class DeepSortFaceSingle(object):
+    def __init__(self, model_path, max_dist=0.2, min_confidence=0.3, nms_max_overlap=1.0, max_iou_distance=0.7,
+                 max_age=70, n_init=3, nn_budget=100, use_cuda=True):
+        self.min_confidence = min_confidence
+        self.nms_max_overlap = nms_max_overlap
+        self.trackers = {}
+        self.extractors = {}
+
+        # create a tracker and re-identification model for each class
+        for i in range(51):
+            metric = NearestNeighborDistanceMetric("cosine", max_dist, nn_budget)
+            tracker = Tracker(metric, max_iou_distance=max_iou_distance, max_age=max_age, n_init=n_init)
+            self.trackers[i] = tracker
+            self.extractors[i] = ModelExtractor(use_cuda=use_cuda)
+
+    def update(self, bbox_xywh, confidences, classes, ori_img):
+        self.height, self.width = ori_img.shape[:2]
+        outputs = []
+
+
+        #classes= []
+        #for i in range(1, len(classes) + 1):
+        #classes=['']
+        for i in range(51):
+            tracker = self.trackers[i]
+            extractor = self.extractors[i]
+
+            # filter detections by class
+            class_mask = (classes == i)
+            class_bbox_xywh = bbox_xywh[class_mask]
+            class_confidences = confidences[class_mask]
+
+            if len(class_bbox_xywh) == 0:
+                continue
+
+            # get appearance feature with neural network
+            features = self._get_features(class_bbox_xywh, ori_img)
+
+            bbox_tlwh = self._xywh_to_tlwh(class_bbox_xywh)
+
+            # generate detections for this class
+            detections = [Detection(bbox_tlwh[j], conf, features[j]) for j, conf in enumerate(class_confidences) if
+                          conf > self.min_confidence]
+
+            # run non-maximum suppression
+            boxes = np.array([d.tlwh for d in detections])
+            scores = np.array([d.confidence for d in detections])
+            indices = non_max_suppression(boxes, self.nms_max_overlap, scores)
+            detections = [detections[j] for j in indices]
+
+            # update tracker
+            tracker.predict()
+            tracker.update(detections)
+
+            # output bbox identities
+            for track in tracker.tracks:
+                if not track.is_confirmed() or track.time_since_update > 1:
+                    continue
+
+                box = track.to_tlwh()
+                x1, y1, x2, y2 = self._tlwh_to_xyxy(box)
+
+                track_id = track.track_id
+                class_id = i
+                conf = track.confidence
+                outputs.append(np.array([x1, y1, x2, y2, track_id, class_id, conf]))
+
+        if len(outputs) > 0:
+            outputs = np.stack(outputs, axis=0)
+        return outputs
+
+
+    
     @staticmethod
     def _xywh_to_tlwh(bbox_xywh):
         if isinstance(bbox_xywh, np.ndarray):
