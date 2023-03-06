@@ -72,7 +72,7 @@ class DeepSortFace(object):
         # output bbox identities
         outputs = []
         for track in self.tracker.tracks:
-            if not track.is_confirmed() or track.time_since_update > 1:
+            if not track.is_confirmed() or track.time_since_update > 0:
                 continue
 
             box = track.to_tlwh()
